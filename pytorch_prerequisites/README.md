@@ -1,18 +1,31 @@
 # PyTorch Prerequisites for *Under the Hood*
 
-This document maps out exactly how much PyTorch you need to know to work through all 35 projects in this repository, and where each piece of knowledge first becomes necessary. It was produced by reading every project's `README.md`, `build.py`, and `step_*.py` files and cataloging the concrete PyTorch APIs used versus the concepts each project assumes you already have.
+This guide maps out exactly how much PyTorch you need to know to work through all 35 projects in this repository, and where each piece of knowledge first becomes necessary. It was produced by reading every project's `README.md`, `build.py`, and `step_*.py` files and cataloging the concrete PyTorch APIs used versus the concepts each project assumes you already have — every formula and API reference below and in the linked files is checked directly against this repo's actual code, not recalled from the general literature.
 
-The book's own stated bar (`README.md`) is: *"You should be comfortable with Python and have seen a tensor before. Everything else is built up from scratch."* That's true in spirit, but "everything else" undersells it a little in the back half of the book — projects 9–35 lean on a fair amount of PyTorch idiom (hooks, `named_modules()`, distributed collectives, HuggingFace-style model conventions) that the book doesn't stop to teach because it isn't really about PyTorch at that point — it's about systems, algorithms, and math, and PyTorch is just the notation. This document is the missing "notation primer."
+The book's own stated bar (`README.md`) is: *"You should be comfortable with Python and have seen a tensor before. Everything else is built up from scratch."* That's true in spirit, but "everything else" undersells it a little in the back half of the book — projects 9–35 lean on a fair amount of PyTorch idiom (hooks, `named_modules()`, distributed collectives, HuggingFace-style model conventions) that the book doesn't stop to teach because it isn't really about PyTorch at that point — it's about systems, algorithms, and math, and PyTorch is just the notation. This guide is the missing "notation primer."
+
+---
+
+## How this guide is organized
+
+| File | Covers | Needed by |
+|---|---|---|
+| [`01_math-foundations.md`](01_math-foundations.md) | The non-PyTorch math underneath everything else: matrix multiplication, the chain rule, exponentials/logarithms and numerical stability, probability and negative log-likelihood, softmax/cross-entropy, norms. Read this first if your math is rusty; every other file links back to it instead of re-deriving formulas. | Before Project 2 |
+| [`02_tensors-and-autograd.md`](02_tensors-and-autograd.md) | **Tier 1 — Core.** Tensors, autograd mechanics (with a worked chain-rule example and the math behind gradient accumulation and in-place-op hazards), broadcasting/indexing, shape manipulation and strides, `nn.Module` basics, the functional API's actual formulas, the AdamW update equations, gradient clipping. | Project 2 onward |
+| [`03_systems-and-training.md`](03_systems-and-training.md) | **Tier 2 — Intermediate.** Module introspection, checkpointing, hooks, the numerical case for mixed precision and loss scaling, CUDA/device management, the scaled dot-product attention formula and why the `1/√d` scaling exists, and the three `torch.distributed` collectives (all-reduce, all-gather, reduce-scatter) with FSDP. | Roughly Projects 5–17 |
+| [`04_advanced-topics.md`](04_advanced-topics.md) | **Tier 3 — Advanced.** The actual formulas behind MoE routing, LoRA, all four preference-optimization losses (DPO/KTO/ORPO/SimPO), the GRPO policy gradient, quantization, patch embeddings, Mamba/RWKV's recurrences, RoPE extension methods (PI/NTK/YaRN), and InfoNCE — each transcribed directly from this repo's `build.py`. | Projects 18–35 |
+
+Read them in order if you're starting cold; jump straight to the relevant one if you already know the basics and just want the math for a specific later project.
 
 ---
 
 ## TL;DR
 
 - **To start Project 1:** no PyTorch at all. It's pure Python.
-- **To start Project 2** (first project that imports `torch`): you need [Tier 1](#tier-1--core-required-from-project-2-onward) below — tensors, autograd basics, broadcasting, indexing, and eventually `nn.Module`.
-- **To comfortably reach Project 17** (end of the systems/inference arc): add [Tier 2](#tier-2--intermediate-required-by-roughly-projects-5-17) — module introspection, hooks, mixed precision, device/CUDA management, and `torch.distributed`/FSDP.
-- **To get through Projects 18–35** without constantly stopping to look things up: add [Tier 3](#tier-3--advanced-needed-for-specific-later-projects-18-35) — the pattern here is less "new PyTorch API" and more "the code becomes thinner and more like transcribed pseudocode," so the prerequisite shifts from *tensor mechanics* to *reading partially-specified code and filling in the undefined pieces yourself*.
-- If you already know research-level PyTorch (you've trained a transformer from scratch before, you know what `requires_grad` and `register_buffer` do, you've used `torch.distributed` at least once), you can start on Project 1 today and treat this document as a reference rather than a study plan.
+- **To start Project 2** (first project that imports `torch`): you need [`02_tensors-and-autograd.md`](02_tensors-and-autograd.md) — tensors, autograd basics, broadcasting, indexing, and eventually `nn.Module`.
+- **To comfortably reach Project 17** (end of the systems/inference arc): add [`03_systems-and-training.md`](03_systems-and-training.md) — module introspection, hooks, mixed precision, device/CUDA management, and `torch.distributed`/FSDP.
+- **To get through Projects 18–35** without constantly stopping to look things up: add [`04_advanced-topics.md`](04_advanced-topics.md) — the pattern here is less "new PyTorch API" and more "the code becomes thinner and more like transcribed pseudocode," so the prerequisite shifts from *tensor mechanics* to *reading partially-specified code and filling in the undefined pieces yourself*.
+- If you already know research-level PyTorch (you've trained a transformer from scratch before, you know what `requires_grad` and `register_buffer` do, you've used `torch.distributed` at least once), you can start on Project 1 today and treat this guide as a reference rather than a study plan.
 
 ---
 
@@ -35,105 +48,7 @@ The book's whole premise is building things from scratch, and it delivers on tha
 | Quantization math (scale/zero-point, symmetric int8/int4) | Project 27 |
 | Mamba-style selective state-space models and RWKV | Project 30 |
 
-If you already know some of these, great — the book will feel like confirmation rather than discovery in those chapters. If you don't, that's the point: you're not expected to.
-
----
-
-## Tier 1 — Core (required from Project 2 onward)
-
-This is the load-bearing 20% of PyTorch that shows up in nearly every project. If you're new to PyTorch, this is what to learn first — a couple of hours with the official ["Deep Learning with PyTorch: A 60 Minute Blitz"](https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html) plus any "build a small classifier" tutorial covers essentially all of it.
-
-**Tensors**
-- Creating tensors: `torch.tensor`, `torch.zeros`, `torch.ones`, `torch.randn`, `torch.arange`, `torch.full`, `torch.zeros_like` / `torch.ones_like`
-- Dtypes: `torch.long`, `torch.float`, `torch.bool`, and why integer token IDs vs. float activations matter
-- `.item()` to pull a Python scalar out of a 0-d tensor
-- `.shape` and shape-unpacking idioms (`B, T, C = x.shape`)
-
-**Autograd**
-- `requires_grad` / `requires_grad_()`, `.backward()`, `.grad`
-- `torch.no_grad()` (context manager) and `@torch.no_grad()` (decorator) — both appear, used interchangeably, never contrasted in the book
-- Why gradients accumulate by default and must be zeroed (`optimizer.zero_grad()` or `p.grad = None`) before each `.backward()`
-- Why in-place ops on a `requires_grad=True` leaf tensor outside `no_grad()` are unsafe — the book exploits this correctly (e.g. freezing embedding rows in Project 2) but never explains the underlying rule
-
-**Broadcasting and indexing**
-- Standard NumPy-style broadcasting rules — used constantly and never re-derived after Project 2
-- Basic slicing (`x[:, -1, :]`) and fancy/advanced indexing (a tensor of integers as an index, e.g. `self.C[X]` in Project 2, `h[torch.arange(B), lengths - 1]` in Project 25)
-- Boolean masks and `.masked_fill(mask, value)` — the `masked_fill(mask == 0, float("-inf"))`-then-`softmax` pattern for causal masking is used in at least 6 projects and never re-explained after its first appearance
-- `.gather(dim, index)` for per-row lookups (picking out one log-probability per token) — a recurring, non-obvious idiom from Project 2 onward, especially dense in Projects 22–25
-
-**Shape manipulation**
-- `.view()` vs `.reshape()` vs `.transpose()` vs `.permute()`, and critically: **why `.contiguous()` is required before `.view()` after a `.transpose()`** (transpose returns a strided view, not a copy; view demands contiguous memory). This exact pattern — `.transpose(1,2).contiguous().view(...)` — appears in Projects 4, 5, 7, 15, and more, and the book never once explains it in code or prose. If you don't already know this, it will look like superstition.
-- `.unsqueeze()` / `.squeeze()` / `.expand()` / `.flatten()`
-- The `expand()`-then-`reshape()` trick specifically (Project 15's `repeat_kv` for grouped-query attention) relies on knowing that `expand` is a zero-copy, stride-0 broadcast and `reshape` may force a copy afterward — a subtler variant of the point above
-
-**`nn.Module` basics** (introduced wholesale in Project 5, assumed fluently thereafter)
-- Subclassing `nn.Module`, calling `super().__init__()`, and how attribute assignment in `__init__` auto-registers submodules and parameters
-- The `__init__` / `forward` contract; calling a module instance invokes `forward`
-- `nn.Parameter` vs. a plain tensor vs. a **buffer** (`self.register_buffer(...)`) — buffers move with `.to(device)` and persist in `state_dict()` but don't get gradients and aren't updated by the optimizer (used for causal masks). This three-way distinction is used correctly throughout but is never spelled out anywhere in the repo.
-- Common layers: `nn.Linear`, `nn.Embedding`, `nn.LayerNorm`, `nn.Dropout`, `nn.Sequential`, `nn.ModuleList`, `nn.GELU` / `nn.SiLU`
-- `model.parameters()`, `p.numel()` for parameter counting — including the tied-weight double-counting trap (see [Reading notes](#repo-specific-reading-notes) below)
-- Weight tying by direct attribute aliasing (`self.lm_head.weight = self.token_embedding.weight`) — two attributes referencing the same `Parameter` object, so gradients from both usage sites accumulate onto one tensor
-
-**The functional API**
-- `import torch.nn.functional as F`: `F.softmax`, `F.cross_entropy` (raw logits in, integer class-index targets out — used as a black box), `F.log_softmax`, `F.logsigmoid`, `F.silu`
-
-**Optimizers and the training loop**
-- `torch.optim.AdamW` — construction, `optimizer.zero_grad()`, `loss.backward()`, `optimizer.step()`
-- `torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)` — appears in essentially every training loop from Project 5 onward
-- `model.eval()` vs `model.train()` and why it matters for dropout/normalization layers even though most runs in this repo use `dropout=0.0` (which silently papers over an actual inconsistency in `build.py` itself — see below)
-
-**Reproducibility**
-- `torch.manual_seed()` (global) used *alongside* an explicit `torch.Generator().manual_seed()` (local, passed as `generator=` to individual ops) — both appear together from Project 2 on, and the relationship between the two is never discussed
-
----
-
-## Tier 2 — Intermediate (required by roughly Projects 5–17)
-
-**Module introspection**
-- `model.named_modules()`, `model.modules()`, `model.named_parameters()`, and the non-obvious `module.parameters(recurse=False)` (a module's *own* parameters, not its children's) — used to selectively apply weight decay, custom init, or per-layer instrumentation by `isinstance` type-checking (`isinstance(m, nn.Linear)`, `isinstance(m, nn.LayerNorm)`, etc.)
-- `id(param)`-based deduplication — required wherever you walk the module tree and a weight-tied parameter would otherwise get counted or classified twice
-
-**Checkpointing**
-- `model.state_dict()` / `load_state_dict()`, `torch.save` / `torch.load`
-
-**Hooks**
-- `module.register_forward_hook(fn)` with signature `fn(module, input, output)` — used for activation-statistics logging (Project 11); `.detach()` before computing stats inside a hook, so logging doesn't extend the autograd graph
-
-**Mixed precision**
-- `torch.cuda.amp.GradScaler()` and the `scaler.scale(loss).backward()` → `scaler.step(optimizer)` → `scaler.update()` pattern, plus reading `scaler.get_scale()` to detect a skipped step (overflow)
-- `dtype=torch.float16` / `torch.bfloat16` passed explicitly to tensor constructors
-- Worth knowing going in: real mixed-precision training normally pairs `GradScaler` with `torch.autocast(...)` wrapping the forward pass — **this repo never actually shows `autocast`**, only the `GradScaler` overflow-bookkeeping half. Don't expect to find a canonical autocast example here; bring that knowledge with you if you want the full picture.
-
-**Device and CUDA management**
-- `device=` kwargs on tensor constructors, `.to(device)`, `torch.cuda.is_available()`
-- `torch.cuda.synchronize()` and *why* it's needed before timing anything (CUDA calls are asynchronous by default)
-- `torch.cuda.max_memory_allocated()`, `reset_peak_memory_stats()`, `empty_cache()`, and catching `torch.cuda.OutOfMemoryError` — shown in Project 8's step files (not its `build.py`) for measuring FlashAttention's real memory advantage
-
-**Batched attention tensor choreography**
-- The `[B, H, T, d_head]` shape convention and `transpose(1, 2)` to split/merge the head dimension — this is assumed fluent by Project 5 and never re-taught
-- Sampling and lookup ops: `torch.multinomial`, `torch.argmax`, `torch.topk`, `.gather()` for per-row probability lookups — dense in Projects 14 (speculative decoding) and 22/24/25 (evaluation, DPO, reasoning)
-
-**Distributed training** (concentrated almost entirely in Project 12, which is the single most PyTorch-systems-heavy project in the book)
-- `torch.distributed`: `init_process_group(backend=...)`, `destroy_process_group()`, `all_reduce`, `all_gather`, `reduce_scatter_tensor`, `ReduceOp.SUM`
-- `torch.multiprocessing.spawn(fn, args=..., nprocs=...)` and its rank-injection convention (each spawned process calls `fn(rank, *args)`)
-- `torch.distributed.fsdp.FullyShardedDataParallel` (FSDP) and `torch.distributed.fsdp.wrap.transformer_auto_wrap_policy` — wrapping each transformer block as its own FSDP unit rather than the whole model at once, and why that controls the granularity of the all-gather/reduce-scatter traffic
-- Process groups, rank, world size, and backend choice (`"gloo"` for the CPU-friendly single-box proxy in this repo vs. `"nccl"` for real multi-GPU, which is never shown)
-
----
-
-## Tier 3 — Advanced (needed for specific later projects, 18–35)
-
-By this point in the book, the pattern changes: individual chapters introduce far *less* new PyTorch API surface, but the code itself gets thinner and more elliptical — several `build.py` files are closer to transcribed pseudocode (undefined helper functions like `policy.generate()`, `reward_model.score()`, `kl_to_reference()` in Project 23) than to runnable programs. The prerequisite shifts from "do you know this tensor op" to "can you read a sketch of an algorithm and supply the missing plumbing yourself, the way you'd read a paper's pseudocode." Knowing Tiers 1–2 solidly is what makes that possible.
-
-- **MoE-style routing** (Project 18): `torch.topk(x, k, dim=-1)` for expert selection, `Tensor.scatter_()` for building a sparse combination mask, `torch.bincount` for utilization tracking. Note the book's reference implementation runs *every* expert on *every* token and masks afterward — the opposite of a real production MoE kernel's token-permutation approach — worth knowing that distinction going in so you don't mistake it for the efficient version.
-- **Low-rank adapters / LoRA** (Project 21): wrapping an existing `nn.Module` inside a new one, `requires_grad_(False)` to freeze the base weight while still differentiating *through* it for upstream gradients, `nn.init.normal_` / `nn.init.zeros_` for the asymmetric adapter initialization that makes the adapter a no-op at step zero.
-- **Preference-optimization losses — DPO/KTO/ORPO/SimPO** (Project 24): `F.logsigmoid` for numerically-stable log-sigmoid; the recurring "shift-by-one, `log_softmax`, `gather`, mask, sum" idiom for computing a sequence's log-probability under a model; running a frozen reference model (`torch.no_grad()`) alongside a trainable policy in the same step. One genuine landmine: ORPO's `torch.log(1 - torch.exp(logp))` is numerically fragile as `logp → 0` (confident predictions drive the argument toward 0, and the log toward `-inf`) — it's transcribed directly from the paper's formula without a stabilized rewrite, so don't assume it's a safe pattern to reuse elsewhere.
-- **Policy-gradient / RLHF basics** (Project 23): `.detach()` to stop gradient flow into a baseline/advantage term while still letting it flow through the log-probability term — the mechanics of a REINFORCE-style surrogate loss, which looks nothing like the cross-entropy/MSE losses used everywhere earlier in the book. This project's code is the thinnest/most pseudocode-like in the repo, so treat the README's prose as the primary source and the code as a sketch.
-- **Quantization** (Project 27): real dtype casts (`.to(torch.int8)`), `torch.round` / `torch.clamp` for the quantize/dequantize round trip, reading `.weight.data` directly (bypassing the `Parameter` wrapper, safe here specifically because nothing is being trained), and `named_modules()` traversal to quantize every `nn.Linear` generically. Worth knowing: this project always dequantizes back to float before computing, so it measures rounding error but never actually exercises a real low-bit matmul kernel.
-- **Vision layers** (Project 29): `nn.Conv2d` used with `stride == kernel_size` as a non-overlapping patch-embedding trick, then `.flatten(2).transpose(1, 2)` to turn the conv output into a token sequence you can concatenate with text embeddings. Also the `ignore_index=-100` convention for `F.cross_entropy` to exclude image-token positions from the language-modeling loss — the one place in the book this label-masking convention is used, introduced with no walkthrough.
-- **Custom recurrent / state-space blocks** (Project 30): heavy reliance on broadcasting across 4-D tensors, `torch.nn.functional.softplus` to keep a parameter positive, log-space parameterization (`torch.log`/`torch.exp`) for numerical stability, and — distinctively — a **manual sequential Python `for` loop over time steps** (not a vectorized scan), appending to a list and `torch.stack`-ing at the end. This is the only place in the book where the "recurrence" isn't fully parallelized, and it's worth recognizing that as a deliberate pedagogical simplification, not how production Mamba/RWKV kernels actually work. **Version note:** this project uses the built-in `nn.RMSNorm`, which requires **PyTorch ≥ 2.4**; the repo's own `requirements.txt` pins `torch>=2.2,<3.0`, so a minimal install following the setup docs literally can hit an `AttributeError` here.
-- **Contrastive / retrieval losses** (Project 28): the InfoNCE pattern — an all-pairs similarity matrix (`query_embs @ passage_embs.T`) scored against `F.cross_entropy(sim, torch.arange(batch_size))`, i.e. reusing cross-entropy as a retrieval loss by treating "the matching pair is on the diagonal" as the label. Recognizing this pattern is the whole prerequisite; the rest of that project is FAISS and NumPy, not PyTorch.
-- **Module-compliance / introspection patterns** (Project 33): not the generic `named_parameters()`/`state_dict()` APIs you'd expect, but cruder, more direct techniques — `type(module).__name__` string comparisons and hardcoded dotted-attribute access (`module.attn.q_proj.weight.shape`) — plus runtime behavioral probes (`torch.isnan(y).any()`, checking the RMS of an output tensor falls in a healthy range) as a check that static structure alone can't catch a silent `LayerNorm`-for-`RMSNorm` swap.
+If you already know some of these, great — the book will feel like confirmation rather than discovery in those chapters. If you don't, that's the point: you're not expected to. (If you'd still like the mathematical basis for any of these ahead of time, it's in [`04_advanced-topics.md`](04_advanced-topics.md) and [`01_math-foundations.md`](01_math-foundations.md) — this guide explains the underlying math without doing the book's job of walking you through building the code.)
 
 ---
 
@@ -215,6 +130,6 @@ These aren't PyTorch prerequisites so much as things worth knowing about *this r
 
 ## Suggested prep path
 
-- **Never used PyTorch:** work through the official 60-minute blitz plus one "train a small classifier" tutorial before starting Project 2. That covers essentially all of Tier 1. Come back to Tier 2 organically when you reach Projects 11–12.
-- **Comfortable with basic PyTorch (tensors, autograd, a simple `nn.Module`), but never touched distributed training, hooks, or quantization:** you can start immediately. Skim Tier 2 before Project 11 and Tier 3's quantization/state-space notes before Projects 27 and 30 so the version trap and the "always dequantizes to float" caveat don't surprise you mid-chapter.
-- **Already comfortable at a research-engineering level:** start on Project 1 today and use this document as a lookup table (via the per-project table above) rather than a study plan — the "Repo-specific reading notes" section is probably the most useful part for you, since it flags the places where the repo's code diverges from what the book's prose promises.
+- **Never used PyTorch:** work through the official 60-minute blitz plus one "train a small classifier" tutorial before starting Project 2, then read [`01_math-foundations.md`](01_math-foundations.md) and [`02_tensors-and-autograd.md`](02_tensors-and-autograd.md) in full. That covers essentially all of Tier 1. Come back to [`03_systems-and-training.md`](03_systems-and-training.md) organically when you reach Projects 11–12.
+- **Comfortable with basic PyTorch (tensors, autograd, a simple `nn.Module`), but never touched distributed training, hooks, or quantization:** you can start immediately. Skim [`03_systems-and-training.md`](03_systems-and-training.md) before Project 11 and [`04_advanced-topics.md`](04_advanced-topics.md)'s quantization/state-space sections before Projects 27 and 30 so the version trap and the "always dequantizes to float" caveat don't surprise you mid-chapter.
+- **Already comfortable at a research-engineering level:** start on Project 1 today and use this guide as a lookup table (via the per-project table above, and the math in [`04_advanced-topics.md`](04_advanced-topics.md) for the specific later chapters) rather than a study plan — the "Repo-specific reading notes" section above is probably the most useful part for you, since it flags the places where the repo's code diverges from what the book's prose promises.
