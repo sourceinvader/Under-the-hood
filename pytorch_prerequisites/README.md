@@ -133,3 +133,23 @@ These aren't PyTorch prerequisites so much as things worth knowing about *this r
 - **Never used PyTorch:** work through the official 60-minute blitz plus one "train a small classifier" tutorial before starting Project 2, then read [`01_math-foundations.md`](01_math-foundations.md) and [`02_tensors-and-autograd.md`](02_tensors-and-autograd.md) in full. That covers essentially all of Tier 1. Come back to [`03_systems-and-training.md`](03_systems-and-training.md) organically when you reach Projects 11–12.
 - **Comfortable with basic PyTorch (tensors, autograd, a simple `nn.Module`), but never touched distributed training, hooks, or quantization:** you can start immediately. Skim [`03_systems-and-training.md`](03_systems-and-training.md) before Project 11 and [`04_advanced-topics.md`](04_advanced-topics.md)'s quantization/state-space sections before Projects 27 and 30 so the version trap and the "always dequantizes to float" caveat don't surprise you mid-chapter.
 - **Already comfortable at a research-engineering level:** start on Project 1 today and use this guide as a lookup table (via the per-project table above, and the math in [`04_advanced-topics.md`](04_advanced-topics.md) for the specific later chapters) rather than a study plan — the "Repo-specific reading notes" section above is probably the most useful part for you, since it flags the places where the repo's code diverges from what the book's prose promises.
+
+---
+
+## Glossary
+
+Acronyms used in the tables and notes above, expanded once so you don't have to guess — the linked files each have their own glossary for concepts, not just acronyms:
+
+- **MoE** — Mixture of Experts (Project 18)
+- **LoRA** — Low-Rank Adaptation (Project 21)
+- **RLHF** — Reinforcement Learning from Human Feedback (Project 23)
+- **GRPO** — Group Relative Policy Optimization, the specific RLHF algorithm Project 23 implements
+- **DPO / KTO / ORPO / SimPO** — Direct Preference Optimization and three later variants, all covered in Project 24
+- **RAG** — Retrieval-Augmented Generation (Project 28)
+- **CKA** — Centered Kernel Alignment, a similarity measure between two models' hidden states (Project 31)
+- **FSDP** — Fully Sharded Data Parallel, PyTorch's built-in sharded-training implementation (Project 12)
+- **KV cache** — the cache of previously-computed key/value tensors that makes autoregressive generation avoid recomputing the whole sequence at every step (Project 13)
+- **GGUF** — a file format for storing quantized model weights, used by `llama.cpp` (Project 27)
+- **NTK / YaRN** — two related methods for extending a model's context length beyond what it was trained on (Project 16)
+- **VLM** — Vision-Language Model (Project 29)
+- **SSM** — State-Space Model, the mathematical family Mamba belongs to (Project 30)
