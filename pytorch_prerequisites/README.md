@@ -10,10 +10,10 @@ The book's own stated bar (`README.md`) is: *"You should be comfortable with Pyt
 
 | File | Covers | Needed by |
 |---|---|---|
-| [`01_math-foundations.md`](01_math-foundations.md) | The non-PyTorch math underneath everything else: matrix multiplication, the chain rule, exponentials/logarithms and numerical stability, probability and negative log-likelihood, softmax/cross-entropy, norms. Read this first if your math is rusty; every other file links back to it instead of re-deriving formulas. | Before Project 2 |
-| [`02_tensors-and-autograd.md`](02_tensors-and-autograd.md) | **Tier 1 — Core.** Tensors, autograd mechanics (with a worked chain-rule example and the math behind gradient accumulation and in-place-op hazards), broadcasting/indexing, shape manipulation and strides, `nn.Module` basics, the functional API's actual formulas, the AdamW update equations, gradient clipping. | Project 2 onward |
-| [`03_systems-and-training.md`](03_systems-and-training.md) | **Tier 2 — Intermediate.** Module introspection, checkpointing, hooks, the numerical case for mixed precision and loss scaling, CUDA/device management, the scaled dot-product attention formula and why the `1/√d` scaling exists, and the three `torch.distributed` collectives (all-reduce, all-gather, reduce-scatter) with FSDP. | Roughly Projects 5–17 |
-| [`04_advanced-topics.md`](04_advanced-topics.md) | **Tier 3 — Advanced.** The actual formulas behind MoE routing, LoRA, all four preference-optimization losses (DPO/KTO/ORPO/SimPO), the GRPO policy gradient, quantization, patch embeddings, Mamba/RWKV's recurrences, RoPE extension methods (PI/NTK/YaRN), and InfoNCE — each transcribed directly from this repo's `build.py`. | Projects 18–35 |
+| [`01_math-foundations.ipynb`](01_math-foundations.ipynb) | The non-PyTorch math underneath everything else: matrix multiplication, the chain rule, exponentials/logarithms and numerical stability, probability and negative log-likelihood, softmax/cross-entropy, norms. Read this first if your math is rusty; every other file links back to it instead of re-deriving formulas. | Before Project 2 |
+| [`02_tensors-and-autograd.ipynb`](02_tensors-and-autograd.ipynb) | **Tier 1 — Core.** Tensors, autograd mechanics (with a worked chain-rule example and the math behind gradient accumulation and in-place-op hazards), broadcasting/indexing, shape manipulation and strides, `nn.Module` basics, the functional API's actual formulas, the AdamW update equations, gradient clipping. | Project 2 onward |
+| [`03_systems-and-training.ipynb`](03_systems-and-training.ipynb) | **Tier 2 — Intermediate.** Module introspection, checkpointing, hooks, the numerical case for mixed precision and loss scaling, CUDA/device management, the scaled dot-product attention formula and why the `1/√d` scaling exists, and the three `torch.distributed` collectives (all-reduce, all-gather, reduce-scatter) with FSDP. | Roughly Projects 5–17 |
+| [`04_advanced-topics.ipynb`](04_advanced-topics.ipynb) | **Tier 3 — Advanced.** The actual formulas behind MoE routing, LoRA, all four preference-optimization losses (DPO/KTO/ORPO/SimPO), the GRPO policy gradient, quantization, patch embeddings, Mamba/RWKV's recurrences, RoPE extension methods (PI/NTK/YaRN), and InfoNCE — each transcribed directly from this repo's `build.py`. | Projects 18–35 |
 
 Read them in order if you're starting cold; jump straight to the relevant one if you already know the basics and just want the math for a specific later project.
 
@@ -22,9 +22,9 @@ Read them in order if you're starting cold; jump straight to the relevant one if
 ## TL;DR
 
 - **To start Project 1:** no PyTorch at all. It's pure Python.
-- **To start Project 2** (first project that imports `torch`): you need [`02_tensors-and-autograd.md`](02_tensors-and-autograd.md) — tensors, autograd basics, broadcasting, indexing, and eventually `nn.Module`.
-- **To comfortably reach Project 17** (end of the systems/inference arc): add [`03_systems-and-training.md`](03_systems-and-training.md) — module introspection, hooks, mixed precision, device/CUDA management, and `torch.distributed`/FSDP.
-- **To get through Projects 18–35** without constantly stopping to look things up: add [`04_advanced-topics.md`](04_advanced-topics.md) — the pattern here is less "new PyTorch API" and more "the code becomes thinner and more like transcribed pseudocode," so the prerequisite shifts from *tensor mechanics* to *reading partially-specified code and filling in the undefined pieces yourself*.
+- **To start Project 2** (first project that imports `torch`): you need [`02_tensors-and-autograd.ipynb`](02_tensors-and-autograd.ipynb) — tensors, autograd basics, broadcasting, indexing, and eventually `nn.Module`.
+- **To comfortably reach Project 17** (end of the systems/inference arc): add [`03_systems-and-training.ipynb`](03_systems-and-training.ipynb) — module introspection, hooks, mixed precision, device/CUDA management, and `torch.distributed`/FSDP.
+- **To get through Projects 18–35** without constantly stopping to look things up: add [`04_advanced-topics.ipynb`](04_advanced-topics.ipynb) — the pattern here is less "new PyTorch API" and more "the code becomes thinner and more like transcribed pseudocode," so the prerequisite shifts from *tensor mechanics* to *reading partially-specified code and filling in the undefined pieces yourself*.
 - If you already know research-level PyTorch (you've trained a transformer from scratch before, you know what `requires_grad` and `register_buffer` do, you've used `torch.distributed` at least once), you can start on Project 1 today and treat this guide as a reference rather than a study plan.
 
 ---
@@ -48,7 +48,7 @@ The book's whole premise is building things from scratch, and it delivers on tha
 | Quantization math (scale/zero-point, symmetric int8/int4) | Project 27 |
 | Mamba-style selective state-space models and RWKV | Project 30 |
 
-If you already know some of these, great — the book will feel like confirmation rather than discovery in those chapters. If you don't, that's the point: you're not expected to. (If you'd still like the mathematical basis for any of these ahead of time, it's in [`04_advanced-topics.md`](04_advanced-topics.md) and [`01_math-foundations.md`](01_math-foundations.md) — this guide explains the underlying math without doing the book's job of walking you through building the code.)
+If you already know some of these, great — the book will feel like confirmation rather than discovery in those chapters. If you don't, that's the point: you're not expected to. (If you'd still like the mathematical basis for any of these ahead of time, it's in [`04_advanced-topics.ipynb`](04_advanced-topics.ipynb) and [`01_math-foundations.ipynb`](01_math-foundations.ipynb) — this guide explains the underlying math without doing the book's job of walking you through building the code.)
 
 ---
 
@@ -130,9 +130,9 @@ These aren't PyTorch prerequisites so much as things worth knowing about *this r
 
 ## Suggested prep path
 
-- **Never used PyTorch:** work through the official 60-minute blitz plus one "train a small classifier" tutorial before starting Project 2, then read [`01_math-foundations.md`](01_math-foundations.md) and [`02_tensors-and-autograd.md`](02_tensors-and-autograd.md) in full. That covers essentially all of Tier 1. Come back to [`03_systems-and-training.md`](03_systems-and-training.md) organically when you reach Projects 11–12.
-- **Comfortable with basic PyTorch (tensors, autograd, a simple `nn.Module`), but never touched distributed training, hooks, or quantization:** you can start immediately. Skim [`03_systems-and-training.md`](03_systems-and-training.md) before Project 11 and [`04_advanced-topics.md`](04_advanced-topics.md)'s quantization/state-space sections before Projects 27 and 30 so the version trap and the "always dequantizes to float" caveat don't surprise you mid-chapter.
-- **Already comfortable at a research-engineering level:** start on Project 1 today and use this guide as a lookup table (via the per-project table above, and the math in [`04_advanced-topics.md`](04_advanced-topics.md) for the specific later chapters) rather than a study plan — the "Repo-specific reading notes" section above is probably the most useful part for you, since it flags the places where the repo's code diverges from what the book's prose promises.
+- **Never used PyTorch:** work through the official 60-minute blitz plus one "train a small classifier" tutorial before starting Project 2, then read [`01_math-foundations.ipynb`](01_math-foundations.ipynb) and [`02_tensors-and-autograd.ipynb`](02_tensors-and-autograd.ipynb) in full. That covers essentially all of Tier 1. Come back to [`03_systems-and-training.ipynb`](03_systems-and-training.ipynb) organically when you reach Projects 11–12.
+- **Comfortable with basic PyTorch (tensors, autograd, a simple `nn.Module`), but never touched distributed training, hooks, or quantization:** you can start immediately. Skim [`03_systems-and-training.ipynb`](03_systems-and-training.ipynb) before Project 11 and [`04_advanced-topics.ipynb`](04_advanced-topics.ipynb)'s quantization/state-space sections before Projects 27 and 30 so the version trap and the "always dequantizes to float" caveat don't surprise you mid-chapter.
+- **Already comfortable at a research-engineering level:** start on Project 1 today and use this guide as a lookup table (via the per-project table above, and the math in [`04_advanced-topics.ipynb`](04_advanced-topics.ipynb) for the specific later chapters) rather than a study plan — the "Repo-specific reading notes" section above is probably the most useful part for you, since it flags the places where the repo's code diverges from what the book's prose promises.
 
 ---
 
